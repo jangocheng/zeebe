@@ -337,6 +337,7 @@ public class RaftContext implements AutoCloseable {
     checkArgument(commitIndex >= 0, "commitIndex must be positive");
     final long previousCommitIndex = this.commitIndex;
     if (commitIndex > previousCommitIndex) {
+      log.info("Set commit index {}", commitIndex);
       this.commitIndex = commitIndex;
       logWriter.commit(Math.min(commitIndex, logWriter.getLastIndex()));
       final long configurationIndex = cluster.getConfiguration().index();

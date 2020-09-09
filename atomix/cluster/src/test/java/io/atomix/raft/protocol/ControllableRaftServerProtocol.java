@@ -21,6 +21,7 @@ import io.atomix.cluster.MemberId;
 import io.atomix.utils.concurrent.Futures;
 import io.zeebe.util.collection.Tuple;
 import java.net.ConnectException;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.Map;
 import java.util.Queue;
@@ -43,6 +44,8 @@ public class ControllableRaftServerProtocol implements RaftServerProtocol {
   private final Set<MemberId> partitions = Sets.newCopyOnWriteArraySet();
   private final Map<MemberId, ControllableRaftServerProtocol> servers;
   private final Map<MemberId, Queue<Tuple<RaftMessage, Runnable>>> messageQueue;
+  private final Map<MemberId, Queue<Tuple<RaftMessage, Runnable>>> outgoingMessageQueue =
+      new HashMap<>();
   private final MemberId localMemberId;
   private boolean deliverImmediately = true;
 
@@ -65,11 +68,32 @@ public class ControllableRaftServerProtocol implements RaftServerProtocol {
     partitions.remove(target);
   }
 
-  public void deliverNextMessage(final MemberId target) {
-    final var nextMessage = messageQueue.get(target).poll();
-    if (nextMessage != null) {
-      nextMessage.getRight().run();
+  public void receiveNextMessage() {
+    final var rcvQueue = messageQueue.get(localMemberId);
+    if (!rcvQueue.isEmpty()) {
+      rcvQueue.poll().getRight().run();
     }
+  }
+
+  public void receiveAll() {
+    final var rcvQueue = messageQueue.get(localMemberId);
+    while (!rcvQueue.isEmpty()) {
+      rcvQueue.poll().getRight().run();
+    }
+  }
+
+  public void deliverNextMessage(final MemberId target) {
+    final var nextMessage =
+        outgoingMessageQueue.computeIfAbsent(target, t -> new LinkedList<>()).poll();
+    if (nextMessage != null) {
+      messageQueue.get(target).add(nextMessage);
+    }
+  }
+
+  public void deliverAll(final MemberId target) {
+    messageQueue
+        .get(target)
+        .addAll(outgoingMessageQueue.computeIfAbsent(target, t -> new LinkedList<>()));
   }
 
   ControllableRaftServerProtocol server(final MemberId memberId) {
@@ -79,18 +103,21 @@ public class ControllableRaftServerProtocol implements RaftServerProtocol {
     return servers.get(memberId);
   }
 
-  private void addToQueue(
+  private void send(
       final MemberId memberId, final RaftMessage request, final Runnable requestHandler) {
-    messageQueue.get(memberId).add(new Tuple<>(request, requestHandler));
     if (deliverImmediately) {
-      deliverNextMessage(memberId);
+      messageQueue.get(memberId).add(new Tuple<>(request, requestHandler));
+    } else {
+      outgoingMessageQueue
+          .computeIfAbsent(memberId, m -> new LinkedList<>())
+          .add(new Tuple<>(request, requestHandler));
     }
   }
 
   @Override
   public CompletableFuture<JoinResponse> join(final MemberId memberId, final JoinRequest request) {
     final var responseFuture = new CompletableFuture<JoinResponse>();
-    addToQueue(
+    send(
         memberId,
         request,
         () ->
@@ -98,8 +125,7 @@ public class ControllableRaftServerProtocol implements RaftServerProtocol {
                 .thenCompose(listener -> listener.join(request))
                 .thenAccept(
                     response ->
-                        addToQueue(
-                            localMemberId, response, () -> responseFuture.complete(response))));
+                        send(localMemberId, response, () -> responseFuture.complete(response))));
     return responseFuture;
   }
 
@@ -107,7 +133,7 @@ public class ControllableRaftServerProtocol implements RaftServerProtocol {
   public CompletableFuture<LeaveResponse> leave(
       final MemberId memberId, final LeaveRequest request) {
     final var responseFuture = new CompletableFuture<LeaveResponse>();
-    addToQueue(
+    send(
         memberId,
         request,
         () ->
@@ -115,8 +141,7 @@ public class ControllableRaftServerProtocol implements RaftServerProtocol {
                 .thenCompose(listener -> listener.leave(request))
                 .thenAccept(
                     response ->
-                        addToQueue(
-                            localMemberId, response, () -> responseFuture.complete(response))));
+                        send(localMemberId, response, () -> responseFuture.complete(response))));
     return responseFuture;
   }
 
@@ -124,7 +149,7 @@ public class ControllableRaftServerProtocol implements RaftServerProtocol {
   public CompletableFuture<ConfigureResponse> configure(
       final MemberId memberId, final ConfigureRequest request) {
     final var responseFuture = new CompletableFuture<ConfigureResponse>();
-    addToQueue(
+    send(
         memberId,
         request,
         () ->
@@ -132,8 +157,7 @@ public class ControllableRaftServerProtocol implements RaftServerProtocol {
                 .thenCompose(listener -> listener.configure(request))
                 .thenAccept(
                     response ->
-                        addToQueue(
-                            localMemberId, response, () -> responseFuture.complete(response))));
+                        send(localMemberId, response, () -> responseFuture.complete(response))));
     return responseFuture;
   }
 
@@ -141,7 +165,7 @@ public class ControllableRaftServerProtocol implements RaftServerProtocol {
   public CompletableFuture<ReconfigureResponse> reconfigure(
       final MemberId memberId, final ReconfigureRequest request) {
     final var responseFuture = new CompletableFuture<ReconfigureResponse>();
-    addToQueue(
+    send(
         memberId,
         request,
         () ->
@@ -149,8 +173,7 @@ public class ControllableRaftServerProtocol implements RaftServerProtocol {
                 .thenCompose(listener -> listener.reconfigure(request))
                 .thenAccept(
                     response ->
-                        addToQueue(
-                            localMemberId, response, () -> responseFuture.complete(response))));
+                        send(localMemberId, response, () -> responseFuture.complete(response))));
     return responseFuture;
   }
 
@@ -158,7 +181,7 @@ public class ControllableRaftServerProtocol implements RaftServerProtocol {
   public CompletableFuture<InstallResponse> install(
       final MemberId memberId, final InstallRequest request) {
     final var responseFuture = new CompletableFuture<InstallResponse>();
-    addToQueue(
+    send(
         memberId,
         request,
         () ->
@@ -166,8 +189,7 @@ public class ControllableRaftServerProtocol implements RaftServerProtocol {
                 .thenCompose(listener -> listener.install(request))
                 .thenAccept(
                     response ->
-                        addToQueue(
-                            localMemberId, response, () -> responseFuture.complete(response))));
+                        send(localMemberId, response, () -> responseFuture.complete(response))));
     return responseFuture;
   }
 
@@ -175,7 +197,7 @@ public class ControllableRaftServerProtocol implements RaftServerProtocol {
   public CompletableFuture<TransferResponse> transfer(
       final MemberId memberId, final TransferRequest request) {
     final var responseFuture = new CompletableFuture<TransferResponse>();
-    addToQueue(
+    send(
         memberId,
         request,
         () ->
@@ -183,15 +205,14 @@ public class ControllableRaftServerProtocol implements RaftServerProtocol {
                 .thenCompose(listener -> listener.transfer(request))
                 .thenAccept(
                     response ->
-                        addToQueue(
-                            localMemberId, response, () -> responseFuture.complete(response))));
+                        send(localMemberId, response, () -> responseFuture.complete(response))));
     return responseFuture;
   }
 
   @Override
   public CompletableFuture<PollResponse> poll(final MemberId memberId, final PollRequest request) {
     final var responseFuture = new CompletableFuture<PollResponse>();
-    addToQueue(
+    send(
         memberId,
         request,
         () ->
@@ -199,15 +220,14 @@ public class ControllableRaftServerProtocol implements RaftServerProtocol {
                 .thenCompose(listener -> listener.poll(request))
                 .thenAccept(
                     response ->
-                        addToQueue(
-                            localMemberId, response, () -> responseFuture.complete(response))));
+                        send(localMemberId, response, () -> responseFuture.complete(response))));
     return responseFuture;
   }
 
   @Override
   public CompletableFuture<VoteResponse> vote(final MemberId memberId, final VoteRequest request) {
     final var responseFuture = new CompletableFuture<VoteResponse>();
-    addToQueue(
+    send(
         memberId,
         request,
         () ->
@@ -215,8 +235,7 @@ public class ControllableRaftServerProtocol implements RaftServerProtocol {
                 .thenCompose(listener -> listener.vote(request))
                 .thenAccept(
                     response ->
-                        addToQueue(
-                            localMemberId, response, () -> responseFuture.complete(response))));
+                        send(localMemberId, response, () -> responseFuture.complete(response))));
     return responseFuture;
   }
 
@@ -224,7 +243,7 @@ public class ControllableRaftServerProtocol implements RaftServerProtocol {
   public CompletableFuture<AppendResponse> append(
       final MemberId memberId, final AppendRequest request) {
     final var responseFuture = new CompletableFuture<AppendResponse>();
-    addToQueue(
+    send(
         memberId,
         request,
         () ->
@@ -232,8 +251,7 @@ public class ControllableRaftServerProtocol implements RaftServerProtocol {
                 .thenCompose(listener -> listener.append(request))
                 .thenAccept(
                     response ->
-                        addToQueue(
-                            localMemberId, response, () -> responseFuture.complete(response))));
+                        send(localMemberId, response, () -> responseFuture.complete(response))));
     return responseFuture;
   }
 
@@ -419,5 +437,8 @@ public class ControllableRaftServerProtocol implements RaftServerProtocol {
 
   public void setDeliverImmediately(final boolean b) {
     deliverImmediately = b;
+    if (deliverImmediately) {
+      outgoingMessageQueue.forEach((target, c) -> deliverAll(target));
+    }
   }
 }

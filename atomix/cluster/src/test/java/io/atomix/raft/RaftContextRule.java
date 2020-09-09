@@ -1,5 +1,6 @@
 package io.atomix.raft;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 
 import io.atomix.cluster.ClusterMembershipService;
@@ -8,12 +9,16 @@ import io.atomix.raft.impl.RaftContext;
 import io.atomix.raft.partition.impl.RaftNamespaces;
 import io.atomix.raft.protocol.ControllableRaftServerProtocol;
 import io.atomix.raft.protocol.RaftMessage;
+import io.atomix.raft.roles.LeaderRole;
 import io.atomix.raft.snapshot.TestSnapshotStore;
 import io.atomix.raft.storage.RaftStorage;
+import io.atomix.raft.zeebe.ZeebeLogAppender.AppendListener;
 import io.atomix.storage.StorageLevel;
+import io.atomix.storage.journal.JournalReader.Mode;
 import io.zeebe.util.collection.Tuple;
 import java.io.File;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -29,6 +34,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.jmock.lib.concurrent.DeterministicScheduler;
 import org.junit.After;
 import org.junit.Before;
@@ -50,6 +56,8 @@ public class RaftContextRule extends ExternalResource {
   private final int nodeCount;
   private final Map<MemberId, RaftContext> raftServers = new HashMap<>();
   private Duration electionTimeout;
+  private Duration hearbeatTimeout;
+  private int nextEntry = 0;
 
   public RaftContextRule(final int nodeCount) {
     this.nodeCount = nodeCount;
@@ -82,6 +90,10 @@ public class RaftContextRule extends ExternalResource {
     }
     joinRaftServers();
     electionTimeout = getRaftServer(0).getElectionTimeout();
+    hearbeatTimeout = getRaftServer(0).getHeartbeatInterval();
+
+    // expecting 0 to be the leader
+    tickHeartbeatTimeout(0);
   }
 
   @After
@@ -105,13 +117,13 @@ public class RaftContextRule extends ExternalResource {
           futures.add(raftContext.getCluster().bootstrap(serverIds));
         });
 
-    getDeterministicScheduler(MemberId.from(String.valueOf(0))).runUntilIdle();
+    runUntilDone(0);
     // trigger election on 0
     getDeterministicScheduler(MemberId.from(String.valueOf(0)))
         .tick(2 * electionTimeout, TimeUnit.MILLISECONDS);
     final var joinFuture = CompletableFuture.allOf(futures.toArray(CompletableFuture[]::new));
     while (!joinFuture.isDone()) {
-      serverIds.forEach(memberId -> getDeterministicScheduler(memberId).runUntilIdle());
+      runUntilDone();
     }
     joinFuture.get(1, TimeUnit.SECONDS);
   }
@@ -182,12 +194,75 @@ public class RaftContextRule extends ExternalResource {
     getDeterministicScheduler(memberId).tick(electionTimeout.toMillis(), TimeUnit.MILLISECONDS);
   }
 
+  public void tickElectionTimeout(final MemberId memberId) {
+    getDeterministicScheduler(memberId).tick(electionTimeout.toMillis(), TimeUnit.MILLISECONDS);
+  }
+
   public void runUntilDone() {
     final var serverIds = raftServers.keySet();
+    processAllMessage();
     serverIds.forEach(memberId -> getDeterministicScheduler(memberId).runUntilIdle());
   }
 
+  public void processAllMessage() {
+    final var serverIds = raftServers.keySet();
+    serverIds.forEach(memberId -> getServerProtocol(memberId).receiveAll());
+  }
+
+  public void processAllMessage(final MemberId memberId) {
+    getServerProtocol(memberId).receiveAll();
+  }
+
+  public void processNextMessage(final MemberId memberId) {
+    getServerProtocol(memberId).receiveNextMessage();
+  }
+
   public void runUntilDone(final int memberId) {
+    getServerProtocol(memberId).receiveAll();
     getDeterministicScheduler(memberId).runUntilIdle();
+  }
+
+  public void runUntilDone(final MemberId memberId) {
+    getServerProtocol(memberId).receiveAll();
+    getDeterministicScheduler(memberId).runUntilIdle();
+  }
+
+  public void tickHeartbeatTimeout(final int memberId) {
+    getDeterministicScheduler(memberId).tick(hearbeatTimeout.toMillis(), TimeUnit.MILLISECONDS);
+  }
+
+  public void tickHeartbeatTimeout(final MemberId memberId) {
+    getDeterministicScheduler(memberId).tick(hearbeatTimeout.toMillis(), TimeUnit.MILLISECONDS);
+  }
+
+  public void clientAppend(final MemberId memberId) {
+    final var role = getRaftServer(memberId).getRaftRole();
+    if (role instanceof LeaderRole) {
+      final ByteBuffer data = ByteBuffer.allocate(Integer.BYTES).putInt(0, nextEntry++);
+      final LeaderRole leaderRole = (LeaderRole) role;
+      leaderRole.appendEntry(0, 1, data, mock(AppendListener.class));
+    }
+  }
+
+  public void assertAllLogsEqual() {
+    final var readers =
+        raftServers.values().stream()
+            .map(s -> s.getLog().openReader(0, Mode.COMMITS))
+            .collect(Collectors.toList());
+    long index = 0;
+    while (true) {
+      final var entries = readers.stream().filter(r -> r.hasNext()).map(r -> r.next()).collect(Collectors.toList());
+      if (entries.size() == 0) {
+        break;
+      }
+      assertThat(entries.stream().distinct().count()).isEqualTo(1);
+      index++;
+    }
+    final var commitIndexOnLeader =
+        raftServers.values().stream()
+            .map(RaftContext::getCommitIndex)
+            .max(Long::compareTo)
+            .orElseThrow();
+    assertThat(index).isEqualTo(commitIndexOnLeader);
   }
 }
