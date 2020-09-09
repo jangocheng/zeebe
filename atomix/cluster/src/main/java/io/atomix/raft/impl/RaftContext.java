@@ -98,10 +98,6 @@ public class RaftContext implements AutoCloseable {
   private final RaftLogReader logReader;
   private final ReceivableSnapshotStore persistedSnapshotStore;
   private final LogCompactor logCompactor;
-  private final ThreadContextFactory threadContextFactory;
-  private final ThreadContext loadContext;
-  private final ThreadContext stateContext;
-  private final boolean closeOnStop;
   private volatile State state = State.ACTIVE;
   private RaftRole role = new InactiveRole(this);
   private Duration electionTimeout = Duration.ofMillis(500);
@@ -140,12 +136,6 @@ public class RaftContext implements AutoCloseable {
     final String baseThreadName = String.format("raft-server-%s-%s", localMemberId.id(), name);
     threadContext =
         new SingleThreadContext(namedThreads(baseThreadName, log), this::onUncaughtException);
-    loadContext = new SingleThreadContext(namedThreads(baseThreadName + "-load", log));
-    stateContext = new SingleThreadContext(namedThreads(baseThreadName + "-state", log));
-
-    this.threadContextFactory =
-        checkNotNull(threadContextFactory, "threadContextFactory cannot be null");
-    this.closeOnStop = closeOnStop;
 
     // Open the metadata store.
     meta = storage.openMetaStore();
