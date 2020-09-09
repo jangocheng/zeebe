@@ -12,18 +12,58 @@ import io.atomix.raft.storage.RaftStorage;
 import io.atomix.storage.StorageLevel;
 import io.zeebe.util.collection.Tuple;
 import java.io.File;
+import java.io.IOException;
 import java.nio.file.Path;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Queue;
 import java.util.function.Function;
 import org.jmock.lib.concurrent.DeterministicScheduler;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.rules.TemporaryFolder;
 
 public class RaftContextRule {
+
+  public TemporaryFolder temporaryFolder = new TemporaryFolder();
 
   private Map<MemberId, ControllableRaftServerProtocol> serverProtocols;
   private Map<MemberId, Queue<Tuple<RaftMessage, Runnable>>> messageQueue;
   private Map<MemberId, DeterministicSingleThreadContext> deterministicExecutors;
   private Path directory;
+
+  private final int nodeCount;
+  private final Map<MemberId, RaftContext> raftServers = new HashMap<>();
+
+
+  public RaftContextRule(final int nodeCount) {
+    this.nodeCount = nodeCount;
+  }
+
+  @Before
+  public void before() throws IOException {
+    directory = temporaryFolder.newFolder().toPath();
+    if (nodeCount > 0) {
+      createRaftContexts(nodeCount);
+    }
+  }
+
+  @After
+  public void after() {
+    raftServers.forEach((m, c) -> c.close());
+    raftServers.clear();
+    serverProtocols.clear();
+    deterministicExecutors.forEach((m, e) -> e.close());
+    deterministicExecutors.clear();
+  }
+
+  private void createRaftContexts(final int nodeCount) {
+
+    for (int i = 0; i < nodeCount; i++) {
+      final var memberId = MemberId.from(String.valueOf(i));
+      raftServers.put(memberId, createRaftContext(memberId));
+    }
+  }
 
   public RaftContext createRaftContext(final MemberId memberId) {
     return new RaftContext(
