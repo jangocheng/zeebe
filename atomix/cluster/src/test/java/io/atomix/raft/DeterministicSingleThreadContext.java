@@ -96,6 +96,6 @@ public class DeterministicSingleThreadContext implements ThreadContext {
 
   @Override
   public void close() {
-    deterministicScheduler.shutdown();
+    // deterministicScheduler.shutdown();
   }
 }

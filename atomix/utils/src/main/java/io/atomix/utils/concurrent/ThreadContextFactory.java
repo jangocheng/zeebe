@@ -16,8 +16,6 @@
  */
 package io.atomix.utils.concurrent;
 
-import java.util.function.Consumer;
-
 /** Thread context factory. */
 public interface ThreadContextFactory {
 
@@ -27,8 +25,6 @@ public interface ThreadContextFactory {
    * @return a new thread context
    */
   ThreadContext createContext();
-
-  ThreadContext createContext(Consumer<Throwable> uncaughtExceptionObserver);
 
   /** Closes the factory. */
   default void close() {}

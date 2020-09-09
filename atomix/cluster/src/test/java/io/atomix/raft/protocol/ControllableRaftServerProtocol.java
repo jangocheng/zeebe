@@ -21,6 +21,7 @@ import io.atomix.cluster.MemberId;
 import io.atomix.utils.concurrent.Futures;
 import io.zeebe.util.collection.Tuple;
 import java.net.ConnectException;
+import java.util.LinkedList;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
@@ -43,7 +44,7 @@ public class ControllableRaftServerProtocol implements RaftServerProtocol {
   private final Map<MemberId, ControllableRaftServerProtocol> servers;
   private final Map<MemberId, Queue<Tuple<RaftMessage, Runnable>>> messageQueue;
   private final MemberId localMemberId;
-  private final boolean deliverImmediately = true;
+  private boolean deliverImmediately = true;
 
   public ControllableRaftServerProtocol(
       final MemberId memberId,
@@ -52,6 +53,7 @@ public class ControllableRaftServerProtocol implements RaftServerProtocol {
     this.servers = servers;
     this.messageQueue = messageQueue;
     localMemberId = memberId;
+    messageQueue.put(memberId, new LinkedList<>());
     servers.put(memberId, this);
   }
 
@@ -413,5 +415,9 @@ public class ControllableRaftServerProtocol implements RaftServerProtocol {
     } else {
       return Futures.exceptionalFuture(new ConnectException());
     }
+  }
+
+  public void setDeliverImmediately(final boolean b) {
+    deliverImmediately = b;
   }
 }

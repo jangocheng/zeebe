@@ -395,6 +395,8 @@ public final class RaftClusterContext implements RaftCluster, AutoCloseable {
               // to form.
               final List<RaftMemberContext> activeMembers = getActiveMemberStates();
               if (!activeMembers.isEmpty()) {
+                final var l = activeMembers.stream().map(c -> c.getMember().memberId().id()).collect(Collectors.toList());
+                log.info("ActiveMembers: {}", l);
                 join(getActiveMemberStates().iterator());
               } else {
                 joinFuture.complete(null);
