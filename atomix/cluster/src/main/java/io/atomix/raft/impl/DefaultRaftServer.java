@@ -26,6 +26,7 @@ import io.atomix.raft.cluster.RaftCluster;
 import io.atomix.raft.storage.RaftStorage;
 import io.atomix.utils.concurrent.AtomixFuture;
 import io.atomix.utils.concurrent.Futures;
+import io.atomix.utils.concurrent.SingleThreadContext;
 import io.atomix.utils.concurrent.ThreadContextFactory;
 import io.atomix.utils.logging.ContextualLoggerFactory;
 import io.atomix.utils.logging.LoggerContext;
@@ -309,13 +310,7 @@ public class DefaultRaftServer implements RaftServer {
 
       final RaftContext raft =
           new RaftContext(
-              name,
-              localMemberId,
-              membershipService,
-              protocol,
-              storage,
-              threadContextFactory,
-              closeOnStop);
+              name, localMemberId, membershipService, protocol, storage, SingleThreadContext::new);
       raft.setElectionTimeout(electionTimeout);
       raft.setHeartbeatInterval(heartbeatInterval);
       raft.setEntryValidator(entryValidator);

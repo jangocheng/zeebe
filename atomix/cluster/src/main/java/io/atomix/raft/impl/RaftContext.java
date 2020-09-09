@@ -53,9 +53,7 @@ import io.atomix.raft.storage.system.MetaStore;
 import io.atomix.raft.zeebe.EntryValidator;
 import io.atomix.storage.StorageException;
 import io.atomix.utils.concurrent.ComposableFuture;
-import io.atomix.utils.concurrent.SingleThreadContext;
 import io.atomix.utils.concurrent.ThreadContext;
-import io.atomix.utils.concurrent.ThreadContextFactory;
 import io.atomix.utils.logging.ContextualLoggerFactory;
 import io.atomix.utils.logging.LoggerContext;
 import io.zeebe.snapshots.raft.ReceivableSnapshotStore;
@@ -117,8 +115,7 @@ public class RaftContext implements AutoCloseable {
       final ClusterMembershipService membershipService,
       final RaftServerProtocol protocol,
       final RaftStorage storage,
-      final ThreadContextFactory threadContextFactory,
-      final boolean closeOnStop) {
+      final RaftSingleThreadContextFactory threadContextFactory) {
     this.name = checkNotNull(name, "name cannot be null");
     this.membershipService = checkNotNull(membershipService, "membershipService cannot be null");
     this.protocol = checkNotNull(protocol, "protocol cannot be null");
@@ -135,7 +132,9 @@ public class RaftContext implements AutoCloseable {
 
     final String baseThreadName = String.format("raft-server-%s-%s", localMemberId.id(), name);
     threadContext =
-        new SingleThreadContext(namedThreads(baseThreadName, log), this::onUncaughtException);
+        threadContextFactory.createContext(
+            namedThreads(baseThreadName, log), this::onUncaughtException);
+    // new SingleThreadContext(namedThreads(baseThreadName, log), this::onUncaughtException);
 
     // Open the metadata store.
     meta = storage.openMetaStore();
@@ -572,7 +571,6 @@ public class RaftContext implements AutoCloseable {
     unregisterHandlers(protocol);
 
     // Close the state machine and thread context.
-    stateContext.close();
     logCompactor.close();
 
     // Close the log.
@@ -598,12 +596,6 @@ public class RaftContext implements AutoCloseable {
 
     // close thread contexts
     threadContext.close();
-    loadContext.close();
-
-    // Only close the thread context factory if indicated.
-    if (closeOnStop) {
-      threadContextFactory.close();
-    }
   }
 
   /** Unregisters server handlers on the configured protocol. */

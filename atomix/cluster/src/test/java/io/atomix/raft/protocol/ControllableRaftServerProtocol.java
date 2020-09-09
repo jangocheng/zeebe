@@ -19,7 +19,6 @@ package io.atomix.raft.protocol;
 import com.google.common.collect.Sets;
 import io.atomix.cluster.MemberId;
 import io.atomix.utils.concurrent.Futures;
-import io.atomix.utils.concurrent.ThreadContext;
 import io.zeebe.util.collection.Tuple;
 import java.net.ConnectException;
 import java.util.Map;
@@ -42,7 +41,6 @@ public class ControllableRaftServerProtocol implements RaftServerProtocol {
   private Function<AppendRequest, CompletableFuture<AppendResponse>> appendHandler;
   private final Set<MemberId> partitions = Sets.newCopyOnWriteArraySet();
   private final Map<MemberId, ControllableRaftServerProtocol> servers;
-  private final ThreadContext context;
   private final Map<MemberId, Queue<Tuple<RaftMessage, Runnable>>> messageQueue;
   private final MemberId localMemberId;
   private final boolean deliverImmediately = true;
@@ -50,10 +48,8 @@ public class ControllableRaftServerProtocol implements RaftServerProtocol {
   public ControllableRaftServerProtocol(
       final MemberId memberId,
       final Map<MemberId, ControllableRaftServerProtocol> servers,
-      final ThreadContext context,
       final Map<MemberId, Queue<Tuple<RaftMessage, Runnable>>> messageQueue) {
     this.servers = servers;
-    this.context = context;
     this.messageQueue = messageQueue;
     localMemberId = memberId;
     servers.put(memberId, this);
