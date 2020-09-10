@@ -1,3 +1,18 @@
+/*
+ * Copyright © 2020 camunda services GmbH (info@camunda.com)
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package io.atomix.raft;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -12,8 +27,10 @@ import io.atomix.raft.protocol.RaftMessage;
 import io.atomix.raft.roles.LeaderRole;
 import io.atomix.raft.snapshot.TestSnapshotStore;
 import io.atomix.raft.storage.RaftStorage;
+import io.atomix.raft.zeebe.NoopEntryValidator;
 import io.atomix.raft.zeebe.ZeebeLogAppender.AppendListener;
 import io.atomix.storage.StorageLevel;
+import io.atomix.storage.journal.JournalReader;
 import io.atomix.storage.journal.JournalReader.Mode;
 import io.zeebe.util.collection.Tuple;
 import java.io.File;
@@ -58,6 +75,8 @@ public class RaftContextRule extends ExternalResource {
   private Duration electionTimeout;
   private Duration hearbeatTimeout;
   private int nextEntry = 0;
+  // Used only for verification
+  private final Map<Long, MemberId> leadersAtTerms = new HashMap<>();
 
   public RaftContextRule(final int nodeCount) {
     this.nodeCount = nodeCount;
@@ -136,18 +155,21 @@ public class RaftContextRule extends ExternalResource {
   }
 
   public RaftContext createRaftContext(final MemberId memberId) {
-    return new RaftContext(
-        memberId.id() + "-partition-1",
-        memberId,
-        mock(ClusterMembershipService.class),
-        new ControllableRaftServerProtocol(memberId, serverProtocols, messageQueue),
-        createStorage(memberId),
-        (f, u) ->
-            deterministicExecutors.computeIfAbsent(
-                memberId,
-                m ->
-                    (DeterministicSingleThreadContext)
-                        DeterministicSingleThreadContext.createContext(f, u)));
+    final var raft =
+        new RaftContext(
+            memberId.id() + "-partition-1",
+            memberId,
+            mock(ClusterMembershipService.class),
+            new ControllableRaftServerProtocol(memberId, serverProtocols, messageQueue),
+            createStorage(memberId),
+            (f, u) ->
+                deterministicExecutors.computeIfAbsent(
+                    memberId,
+                    m ->
+                        (DeterministicSingleThreadContext)
+                            DeterministicSingleThreadContext.createContext(f, u)));
+    raft.setEntryValidator(new NoopEntryValidator());
+    return raft;
   }
 
   private RaftStorage createStorage(final MemberId memberId) {
@@ -227,6 +249,14 @@ public class RaftContextRule extends ExternalResource {
     getDeterministicScheduler(memberId).runUntilIdle();
   }
 
+  public void runNextTask(final MemberId memberId) {
+    getServerProtocol(memberId).receiveAll();
+    final var scheduler = getDeterministicScheduler(memberId);
+    if (!scheduler.isIdle()) {
+      scheduler.runNextPendingCommand();
+    }
+  }
+
   public void tickHeartbeatTimeout(final int memberId) {
     getDeterministicScheduler(memberId).tick(hearbeatTimeout.toMillis(), TimeUnit.MILLISECONDS);
   }
@@ -244,6 +274,14 @@ public class RaftContextRule extends ExternalResource {
     }
   }
 
+  public void clientAppendOnLeader() {
+    final var leaderTerm = leadersAtTerms.keySet().stream().max(Long::compareTo);
+    final var leader = leadersAtTerms.get(leaderTerm);
+    if (leader != null) {
+      clientAppend(leader);
+    }
+  }
+
   public void assertAllLogsEqual() {
     final var readers =
         raftServers.values().stream()
@@ -251,7 +289,8 @@ public class RaftContextRule extends ExternalResource {
             .collect(Collectors.toList());
     long index = 0;
     while (true) {
-      final var entries = readers.stream().filter(r -> r.hasNext()).map(r -> r.next()).collect(Collectors.toList());
+      final var entries =
+          readers.stream().filter(r -> r.hasNext()).map(r -> r.next()).collect(Collectors.toList());
       if (entries.size() == 0) {
         break;
       }
@@ -264,5 +303,22 @@ public class RaftContextRule extends ExternalResource {
             .max(Long::compareTo)
             .orElseThrow();
     assertThat(index).isEqualTo(commitIndexOnLeader);
+    readers.forEach(JournalReader::close);
+  }
+
+  public void assertOnlyOneLeader() {
+    raftServers.values().forEach(s -> updateAndVerifyLeaderTerm(s));
+  }
+
+  private void updateAndVerifyLeaderTerm(final RaftContext s) {
+    final long term = s.getTerm();
+    if (s.getLeader() != null) {
+      final var leader = s.getLeader().memberId();
+      if (leadersAtTerms.containsKey(term)) {
+        assertThat(leadersAtTerms.get(term)).isEqualTo(leader);
+      } else {
+        leadersAtTerms.put(term, leader);
+      }
+    }
   }
 }
