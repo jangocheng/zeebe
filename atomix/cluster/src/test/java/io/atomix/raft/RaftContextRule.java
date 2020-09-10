@@ -65,7 +65,8 @@ public class RaftContextRule extends ExternalResource {
   public TemporaryFolder temporaryFolder = new TemporaryFolder();
 
   private final Map<MemberId, ControllableRaftServerProtocol> serverProtocols = new HashMap<>();
-  private final Map<MemberId, Queue<Tuple<RaftMessage, Runnable>>> messageQueue = new HashMap<>();
+  private final Map<MemberId, Queue<Tuple<RaftMessage, Tuple<Runnable, CompletableFuture>>>>
+      messageQueue = new HashMap<>();
   private final Map<MemberId, DeterministicSingleThreadContext> deterministicExecutors =
       new HashMap<>();
   private Path directory;

@@ -51,10 +51,12 @@ public class RaftControlledTest {
                   operations.add(() -> raftRule.getServerProtocol(memberId).deliverAll(other));
                   operations.add(
                       () -> raftRule.getServerProtocol(memberId).deliverNextMessage(other));
+                  // operations.add(() -> raftRule.getServerProtocol(memberId).dropNextMessage(other));
                 }
               });
         });
     operations.add(() -> raftRule.clientAppendOnLeader());
+    // serverIds.forEach(s -> raftRule.getServerProtocol(s).setDeliverImmediately(false));
   }
 
   @Test
@@ -92,7 +94,7 @@ public class RaftControlledTest {
 
   @Test
   public void randomizedTest() {
-    final var random = new Random(1000);
+    final var random = new Random(100);
     for (int i = 0; i < 100000; i++) {
       final var nextOp = Math.abs(random.nextInt());
 
