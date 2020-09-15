@@ -123,6 +123,8 @@ public class RaftContextRule extends ExternalResource {
     serverProtocols.clear();
     deterministicExecutors.forEach((m, e) -> e.close());
     deterministicExecutors.clear();
+    messageQueue.clear();
+    leadersAtTerms.clear();
   }
 
   private void joinRaftServers() throws InterruptedException, ExecutionException, TimeoutException {

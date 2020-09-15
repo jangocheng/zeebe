@@ -30,7 +30,6 @@ import org.apache.commons.math3.util.Pair;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
-import org.slf4j.LoggerFactory;
 
 public class RaftControlledTest {
 
@@ -63,7 +62,7 @@ public class RaftControlledTest {
               });
         });
     operations.add(() -> raftRule.clientAppendOnLeader());
-    serverIds.forEach(s -> raftRule.getServerProtocol(s).setDeliverImmediately(false));
+    // serverIds.forEach(s -> raftRule.getServerProtocol(s).setDeliverImmediately(false));
   }
 
   @Test
@@ -250,21 +249,5 @@ public class RaftControlledTest {
       }
     }
     raftRule.assertAllLogsEqual();
-  }
-
-  private class RaftOperation {
-
-    final Consumer<MemberId> operation;
-    private final String name;
-
-    private RaftOperation(final String name, final Consumer<MemberId> operation) {
-      this.name = name;
-      this.operation = operation;
-    }
-
-    public void run(final MemberId memberId) {
-      LoggerFactory.getLogger("TEST").info("Running {} on {}", name, memberId);
-      operation.accept(memberId);
-    }
   }
 }
