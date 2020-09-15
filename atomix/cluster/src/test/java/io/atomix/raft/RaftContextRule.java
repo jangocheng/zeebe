@@ -266,6 +266,10 @@ public class RaftContextRule extends ExternalResource {
     getDeterministicScheduler(memberId).tick(hearbeatTimeout.toMillis(), TimeUnit.MILLISECONDS);
   }
 
+  public void tick(final MemberId memberId, final Duration time) {
+    getDeterministicScheduler(memberId).tick(time.toMillis(), TimeUnit.MILLISECONDS);
+  }
+
   public void clientAppend(final MemberId memberId) {
     final var role = getRaftServer(memberId).getRaftRole();
     if (role instanceof LeaderRole) {

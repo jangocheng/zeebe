@@ -99,6 +99,7 @@ public class ControllableRaftServerProtocol implements RaftServerProtocol {
     messageQueue
         .get(target)
         .addAll(outgoingMessageQueue.computeIfAbsent(target, t -> new LinkedList<>()));
+    outgoingMessageQueue.get(target).clear();
   }
 
   public void dropNextMessage(final MemberId target) {
