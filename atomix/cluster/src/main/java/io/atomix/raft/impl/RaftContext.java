@@ -134,7 +134,6 @@ public class RaftContext implements AutoCloseable {
     threadContext =
         threadContextFactory.createContext(
             namedThreads(baseThreadName, log), this::onUncaughtException);
-    // new SingleThreadContext(namedThreads(baseThreadName, log), this::onUncaughtException);
 
     // Open the metadata store.
     meta = storage.openMetaStore();
@@ -337,7 +336,6 @@ public class RaftContext implements AutoCloseable {
     checkArgument(commitIndex >= 0, "commitIndex must be positive");
     final long previousCommitIndex = this.commitIndex;
     if (commitIndex > previousCommitIndex) {
-      log.info("Set commit index {}", commitIndex);
       this.commitIndex = commitIndex;
       logWriter.commit(Math.min(commitIndex, logWriter.getLastIndex()));
       final long configurationIndex = cluster.getConfiguration().index();

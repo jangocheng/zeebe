@@ -15,6 +15,8 @@
  */
 package io.atomix.raft;
 
+import static org.junit.Assert.fail;
+
 import io.atomix.utils.concurrent.Scheduled;
 import io.atomix.utils.concurrent.ScheduledFutureImpl;
 import io.atomix.utils.concurrent.ThreadContext;
@@ -47,15 +49,17 @@ public class DeterministicSingleThreadContext implements ThreadContext {
   }
 
   @Override
-  public Scheduled schedule(final long delay, final TimeUnit timeUnit, final Runnable callback) {
-    final var future = deterministicScheduler.schedule(callback, delay, timeUnit);
+  public Scheduled schedule(final long delay, final TimeUnit timeUnit, final Runnable command) {
+    final var future =
+        deterministicScheduler.schedule(new WrappedRunnable(command), delay, timeUnit);
     return new ScheduledFutureImpl<>(future);
   }
 
   @Override
-  public Scheduled schedule(final Duration delay, final Runnable callback) {
+  public Scheduled schedule(final Duration delay, final Runnable command) {
     final var future =
-        deterministicScheduler.schedule(callback, delay.toMillis(), TimeUnit.MILLISECONDS);
+        deterministicScheduler.schedule(
+            new WrappedRunnable(command), delay.toMillis(), TimeUnit.MILLISECONDS);
     return new ScheduledFutureImpl<>(future);
   }
 
@@ -64,24 +68,28 @@ public class DeterministicSingleThreadContext implements ThreadContext {
       final long initialDelay,
       final long interval,
       final TimeUnit timeUnit,
-      final Runnable callback) {
+      final Runnable command) {
     final ScheduledFuture<?> future =
-        deterministicScheduler.scheduleAtFixedRate(callback, initialDelay, interval, timeUnit);
+        deterministicScheduler.scheduleAtFixedRate(
+            new WrappedRunnable(command), initialDelay, interval, timeUnit);
     return new ScheduledFutureImpl<>(future);
   }
 
   @Override
   public Scheduled schedule(
-      final Duration initialDelay, final Duration interval, final Runnable callback) {
+      final Duration initialDelay, final Duration interval, final Runnable command) {
     final ScheduledFuture<?> future =
         deterministicScheduler.scheduleAtFixedRate(
-            callback, initialDelay.toMillis(), interval.toMillis(), TimeUnit.MILLISECONDS);
+            new WrappedRunnable(command),
+            initialDelay.toMillis(),
+            interval.toMillis(),
+            TimeUnit.MILLISECONDS);
     return new ScheduledFutureImpl<>(future);
   }
 
   @Override
   public void execute(final Runnable command) {
-    deterministicScheduler.execute(command);
+    deterministicScheduler.execute(new WrappedRunnable(command));
   }
 
   @Override
@@ -111,6 +119,25 @@ public class DeterministicSingleThreadContext implements ThreadContext {
 
   @Override
   public void close() {
-    // deterministicScheduler.shutdown();
+    // do nothing
+  }
+
+  class WrappedRunnable implements Runnable {
+
+    private final Runnable command;
+
+    WrappedRunnable(final Runnable command) {
+      this.command = command;
+    }
+
+    @Override
+    public void run() {
+      try {
+        command.run();
+      } catch (final Throwable e) {
+        e.printStackTrace();
+        fail("Uncaught exception");
+      }
+    }
   }
 }

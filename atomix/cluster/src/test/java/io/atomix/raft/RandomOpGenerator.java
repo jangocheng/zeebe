@@ -37,7 +37,7 @@ public class RandomOpGenerator {
 
   public static Collection<RaftOperation> getDefaultRaftOperations(final RaftContextRule raftRule) {
     final Collection<RaftOperation> defaultRaftOperation = new ArrayList<>();
-    defaultRaftOperation.add(RaftOperation.of("runUntilDone", raftRule::runUntilDone));
+    // defaultRaftOperation.add(RaftOperation.of("runUntilDone", raftRule::runUntilDone));
     defaultRaftOperation.add(RaftOperation.of("runNextTask", raftRule::runNextTask));
     defaultRaftOperation.add(RaftOperation.of("processAllMessage", raftRule::processAllMessage));
     defaultRaftOperation.add(RaftOperation.of("processNextMessage", raftRule::processNextMessage));

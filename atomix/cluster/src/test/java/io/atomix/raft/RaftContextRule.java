@@ -301,7 +301,11 @@ public class RaftContextRule extends ExternalResource {
       if (entries.size() == 0) {
         break;
       }
-      assertThat(entries.stream().distinct().count()).isEqualTo(1);
+      assertThat(entries.stream().distinct().count())
+          .withFailMessage(
+              "Expected to find the same entry at a committed index on all nodes, but found %s",
+              entries)
+          .isEqualTo(1);
       index++;
     }
     final var commitIndexOnLeader =
@@ -322,7 +326,10 @@ public class RaftContextRule extends ExternalResource {
     if (s.getLeader() != null) {
       final var leader = s.getLeader().memberId();
       if (leadersAtTerms.containsKey(term)) {
-        assertThat(leadersAtTerms.get(term)).isEqualTo(leader);
+        final var knownLeader = leadersAtTerms.get(term);
+        assertThat(knownLeader)
+            .withFailMessage("Found two leaders %s %s at term %s", knownLeader, leader, term)
+            .isEqualTo(leader);
       } else {
         leadersAtTerms.put(term, leader);
       }

@@ -77,10 +77,16 @@ public class RandomizedRaftTest {
 
   @Test
   public void verifyRaftProperties() {
+    int step = 0;
     for (final Runnable operation : randomOperations) {
+      step++;
       if (operation != null) {
         operation.run();
         raftRule.assertOnlyOneLeader();
+      }
+      if (step % 1000 == 0) { // reading logs after every operation is too slow
+        raftRule.assertAllLogsEqual();
+        step = 0;
       }
     }
     raftRule.assertAllLogsEqual();
