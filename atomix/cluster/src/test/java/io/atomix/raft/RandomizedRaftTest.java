@@ -47,8 +47,8 @@ public class RandomizedRaftTest {
   @Parameters(name = "{0}")
   public static Collection<Object[]> generateRandomOperations() {
     final List<Object[]> schedules = new ArrayList<>();
-    for (int i = 1; i <= 30; i++) {
-      for (int j = 1; j <= 4; j++) {
+    for (int i = 1; i <= 10; i++) {
+      for (int j = 1; j <= 10; j++) {
         final var raftRule = new RaftContextRule(3);
         schedules.add(new Object[] {raftRule, i, j});
       }
@@ -64,6 +64,10 @@ public class RandomizedRaftTest {
             raftRule.getRaftServers().keySet());
     final var pmf = randomOpGenerator.generateOpProbabilityFunction(pmfSeed);
     randomOperations = randomOpGenerator.generateRandomOperations(operationsSeed, pmf, STEPCOUNT);
+    raftRule
+        .getRaftServers()
+        .keySet()
+        .forEach(s -> raftRule.getServerProtocol(s).setDeliverImmediately(false));
   }
 
   @After
