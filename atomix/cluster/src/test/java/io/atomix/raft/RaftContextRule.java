@@ -292,16 +292,18 @@ public class RaftContextRule extends ExternalResource {
   public void assertAllLogsEqual() {
     final var readers =
         raftServers.values().stream()
-            .map(s -> s.getLog().openReader(0, Mode.COMMITS))
-            .collect(Collectors.toList());
+            .collect(
+                Collectors.toMap(Function.identity(), s -> s.getLog().openReader(0, Mode.COMMITS)));
     long index = 0;
     while (true) {
       final var entries =
-          readers.stream().filter(r -> r.hasNext()).map(r -> r.next()).collect(Collectors.toList());
+          readers.keySet().stream()
+              .filter(s -> readers.get(s).hasNext())
+              .collect(Collectors.toMap(s -> s.getName(), s -> readers.get(s).next()));
       if (entries.size() == 0) {
         break;
       }
-      assertThat(entries.stream().distinct().count())
+      assertThat(entries.values().stream().distinct().count())
           .withFailMessage(
               "Expected to find the same entry at a committed index on all nodes, but found %s",
               entries)
@@ -314,7 +316,7 @@ public class RaftContextRule extends ExternalResource {
             .max(Long::compareTo)
             .orElseThrow();
     assertThat(index).isEqualTo(commitIndexOnLeader);
-    readers.forEach(JournalReader::close);
+    readers.values().forEach(JournalReader::close);
   }
 
   public void assertOnlyOneLeader() {
