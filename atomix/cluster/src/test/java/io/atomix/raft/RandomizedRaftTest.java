@@ -47,7 +47,7 @@ public class RandomizedRaftTest {
   @Parameters(name = "{0}")
   public static Collection<Object[]> generateRandomOperations() {
     final List<Object[]> schedules = new ArrayList<>();
-    for (int i = 1; i <= 10; i++) {
+    for (int i = 1; i <= 100; i++) {
       for (int j = 1; j <= 10; j++) {
         final var raftRule = new RaftContextRule(3);
         schedules.add(new Object[] {raftRule, i, j});
