@@ -73,7 +73,7 @@ public class RandomOpGenerator {
     return defaultRaftOperation;
   }
 
-  public List<Pair<RaftOperation, Double>> generateOpProbabilityFunction(final int seed) {
+  public List<Pair<RaftOperation, Double>> generateOpProbabilityFunction(final long seed) {
     final var random = new Random(seed);
     final List<Pair<RaftOperation, Double>> pmf = new ArrayList<>();
     for (final RaftOperation operation : raftOperations) {
@@ -87,7 +87,7 @@ public class RandomOpGenerator {
   }
 
   public List<Runnable> generateRandomOperations(
-      final int seed, final List<Pair<RaftOperation, Double>> pmf, final int sampleSize) {
+      final long seed, final List<Pair<RaftOperation, Double>> pmf, final long sampleSize) {
     final List<Pair<MemberId, Double>> memberIdPmf = new ArrayList<>();
     // Add equal probability distribution of members
     memberIds.forEach(m -> memberIdPmf.add(new Pair<>(m, 0.3)));
