@@ -50,7 +50,11 @@ public class RandomizedRaftTest {
     for (int i = 1; i <= 10; i++) {
       for (int j = 1; j <= 10; j++) {
         final var raftRule = new RaftContextRule(3);
-        schedules.add(new Object[] {raftRule, i * System.currentTimeMillis(), j * System.currentTimeMillis()});
+        schedules.add(new Object[] {raftRule, i, j * System.currentTimeMillis()});
+      }
+      for (int j = 1; j <= 10; j++) {
+        final var raftRule = new RaftContextRule(3);
+        schedules.add(new Object[] {raftRule, i, j});
       }
     }
     return schedules;
