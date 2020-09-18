@@ -935,8 +935,8 @@ public class RaftContext implements AutoCloseable {
         }
       }
 
-      lastVotedFor = null;
-      meta.storeVote(null);
+      /*lastVotedFor = null;
+      meta.storeVote(null);*/
     }
   }
 
