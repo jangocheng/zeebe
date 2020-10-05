@@ -62,7 +62,7 @@ public class RandomizedRaftTest {
 
   @Before
   public void before() {
-    final RandomOpGenerator randomOpGenerator =
+    /*final RandomOpGenerator randomOpGenerator =
         new RandomOpGenerator(
             RandomOpGenerator.getDefaultRaftOperations(raftRule),
             raftRule.getRaftServers().keySet());
@@ -71,7 +71,7 @@ public class RandomizedRaftTest {
     raftRule
         .getRaftServers()
         .keySet()
-        .forEach(s -> raftRule.getServerProtocol(s).setDeliverImmediately(false));
+        .forEach(s -> raftRule.getServerProtocol(s).setDeliverImmediately(false));*/
   }
 
   @After

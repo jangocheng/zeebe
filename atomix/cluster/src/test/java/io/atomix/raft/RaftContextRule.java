@@ -53,22 +53,15 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.jmock.lib.concurrent.DeterministicScheduler;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.rules.ExternalResource;
-import org.junit.rules.TemporaryFolder;
-import org.junit.runner.Description;
-import org.junit.runners.model.Statement;
 
-public class RaftContextRule extends ExternalResource {
-
-  public TemporaryFolder temporaryFolder = new TemporaryFolder();
+public class RaftContextRule {
 
   private final Map<MemberId, ControllableRaftServerProtocol> serverProtocols = new HashMap<>();
   private final Map<MemberId, Queue<Tuple<RaftMessage, Tuple<Runnable, CompletableFuture>>>>
       messageQueue = new HashMap<>();
   private final Map<MemberId, DeterministicSingleThreadContext> deterministicExecutors =
       new HashMap<>();
+
   private Path directory;
 
   private final int nodeCount;
@@ -95,16 +88,8 @@ public class RaftContextRule extends ExternalResource {
     return raftServers.get(memberId);
   }
 
-  @Override
-  public Statement apply(final Statement base, final Description description) {
-    final var statement = super.apply(base, description);
-    return temporaryFolder.apply(statement, description);
-  }
-
-  @Before
-  public void before()
-      throws IOException, InterruptedException, ExecutionException, TimeoutException {
-    directory = temporaryFolder.newFolder().toPath();
+  public void before(final Path directory) throws Exception {
+    this.directory = directory;
     if (nodeCount > 0) {
       createRaftContexts(nodeCount);
     }
@@ -116,8 +101,7 @@ public class RaftContextRule extends ExternalResource {
     tickHeartbeatTimeout(0);
   }
 
-  @After
-  public void after() {
+  public void after() throws IOException {
     raftServers.forEach((m, c) -> c.close());
     raftServers.clear();
     serverProtocols.clear();
@@ -125,6 +109,7 @@ public class RaftContextRule extends ExternalResource {
     deterministicExecutors.clear();
     messageQueue.clear();
     leadersAtTerms.clear();
+    directory = null;
   }
 
   private void joinRaftServers() throws InterruptedException, ExecutionException, TimeoutException {

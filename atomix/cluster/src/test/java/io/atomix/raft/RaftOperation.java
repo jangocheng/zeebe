@@ -16,25 +16,26 @@
 package io.atomix.raft;
 
 import io.atomix.cluster.MemberId;
-import java.util.function.Consumer;
+import java.util.function.BiConsumer;
 import org.slf4j.LoggerFactory;
 
 public class RaftOperation {
 
-  final Consumer<MemberId> operation;
+  final BiConsumer<RaftContextRule, MemberId> operation;
   private final String name;
 
-  RaftOperation(final String name, final Consumer<MemberId> operation) {
+  RaftOperation(final String name, final BiConsumer<RaftContextRule, MemberId> operation) {
     this.name = name;
     this.operation = operation;
   }
 
-  public static RaftOperation of(final String name, final Consumer<MemberId> operation) {
+  public static RaftOperation of(
+      final String name, final BiConsumer<RaftContextRule, MemberId> operation) {
     return new RaftOperation(name, operation);
   }
 
-  public void run(final MemberId memberId) {
+  public void run(final RaftContextRule raftContextRule, final MemberId memberId) {
     LoggerFactory.getLogger("TEST").info("Running {} on {}", name, memberId);
-    operation.accept(memberId);
+    operation.accept(raftContextRule, memberId);
   }
 }

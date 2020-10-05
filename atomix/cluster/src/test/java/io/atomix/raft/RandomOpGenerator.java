@@ -35,41 +35,49 @@ public class RandomOpGenerator {
     this.memberIds = memberIds;
   }
 
-  public static Collection<RaftOperation> getDefaultRaftOperations(final RaftContextRule raftRule) {
+  public static Collection<RaftOperation> getDefaultRaftOperations(
+      final Collection<MemberId> serverIds) {
     final Collection<RaftOperation> defaultRaftOperation = new ArrayList<>();
-    // defaultRaftOperation.add(RaftOperation.of("runUntilDone", raftRule::runUntilDone));
-    defaultRaftOperation.add(RaftOperation.of("runNextTask", raftRule::runNextTask));
-    defaultRaftOperation.add(RaftOperation.of("processAllMessage", raftRule::processAllMessage));
-    defaultRaftOperation.add(RaftOperation.of("processNextMessage", raftRule::processNextMessage));
     defaultRaftOperation.add(
-        RaftOperation.of("tickElectionTimeout", raftRule::tickElectionTimeout));
+        RaftOperation.of("runNextTask", (raftRule, memberId) -> raftRule.runNextTask(memberId)));
     defaultRaftOperation.add(
-        RaftOperation.of("tickHeartBeatTimeout", raftRule::tickHeartbeatTimeout));
+        RaftOperation.of(
+            "processAllMessage", (raftRule, memberId) -> raftRule.processAllMessage(memberId)));
     defaultRaftOperation.add(
-        RaftOperation.of("tick 50ms", m -> raftRule.tick(m, Duration.ofMillis(50))));
-    defaultRaftOperation.add(RaftOperation.of("clientAppend", raftRule::clientAppend));
+        RaftOperation.of(
+            "processNextMessage", (raftRule, memberId) -> raftRule.processNextMessage(memberId)));
     defaultRaftOperation.add(
-        RaftOperation.of("clientAppendOnLeader", m -> raftRule.clientAppendOnLeader()));
+        RaftOperation.of(
+            "tickElectionTimeout", (raftRule, memberId) -> raftRule.tickElectionTimeout(memberId)));
+    defaultRaftOperation.add(
+        RaftOperation.of(
+            "tickHeartBeatTimeout",
+            (raftRule, memberId) -> raftRule.tickHeartbeatTimeout(memberId)));
+    defaultRaftOperation.add(
+        RaftOperation.of("tick 50ms", (raftRule, m) -> raftRule.tick(m, Duration.ofMillis(50))));
+    defaultRaftOperation.add(
+        RaftOperation.of("clientAppend", (raftRule, memberId) -> raftRule.clientAppend(memberId)));
+    defaultRaftOperation.add(
+        RaftOperation.of("clientAppendOnLeader", (raftRule, m) -> raftRule.clientAppendOnLeader()));
 
-    final var serverIds = raftRule.getRaftServers().keySet();
     serverIds.forEach(
         target ->
             defaultRaftOperation.add(
                 RaftOperation.of(
                     "deliverAllMessage to " + target.id(),
-                    m -> raftRule.getServerProtocol(m).deliverAll(target))));
+                    (raftRule, m) -> raftRule.getServerProtocol(m).deliverAll(target))));
     serverIds.forEach(
         target ->
             defaultRaftOperation.add(
                 RaftOperation.of(
                     "deliverNextMessage to " + target.id(),
-                    m -> raftRule.getServerProtocol(m).deliverNextMessage(target))));
+                    (raftRule, m) -> raftRule.getServerProtocol(m).deliverNextMessage(target))));
     serverIds.forEach(
         target ->
             defaultRaftOperation.add(
                 RaftOperation.of(
                     "dropNextMessage to " + target.id(),
-                    m -> raftRule.getServerProtocol(m).dropNextMessage(target))));
+                    (raftRule, m) -> raftRule.getServerProtocol(m).dropNextMessage(target))));
     return defaultRaftOperation;
   }
 
@@ -100,7 +108,7 @@ public class RandomOpGenerator {
     final List<Runnable> operations = new ArrayList<>();
     for (int i = 0; i < sampleSize; i++) {
       final var nextOperation = distribution.sample();
-      operations.add(() -> nextOperation.run(memberDistribution.sample()));
+      operations.add(() -> nextOperation.run(null, memberDistribution.sample()));
     }
     return operations;
   }
