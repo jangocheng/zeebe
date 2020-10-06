@@ -38,4 +38,9 @@ public class RaftOperation {
     LoggerFactory.getLogger("TEST").info("Running {} on {}", name, memberId);
     operation.accept(raftContextRule, memberId);
   }
+
+  @Override
+  public String toString() {
+    return name;
+  }
 }

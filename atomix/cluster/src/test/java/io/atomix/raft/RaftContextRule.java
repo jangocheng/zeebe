@@ -44,6 +44,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Queue;
+import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -88,10 +89,11 @@ public class RaftContextRule {
     return raftServers.get(memberId);
   }
 
-  public void before(final Path directory) throws Exception {
+  public void before(final Path directory, final Random random) throws Exception {
     this.directory = directory;
     if (nodeCount > 0) {
       createRaftContexts(nodeCount);
+      raftServers.values().forEach(raft -> raft.setRandom(random));
     }
     joinRaftServers();
     electionTimeout = getRaftServer(0).getElectionTimeout();

@@ -59,6 +59,7 @@ import io.atomix.utils.logging.LoggerContext;
 import io.zeebe.snapshots.raft.ReceivableSnapshotStore;
 import java.time.Duration;
 import java.util.Objects;
+import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArraySet;
@@ -107,6 +108,7 @@ public class RaftContext implements AutoCloseable {
   private volatile long firstCommitIndex;
   private volatile boolean started;
   private EntryValidator entryValidator;
+  private Random random = new Random();
 
   @SuppressWarnings("unchecked")
   public RaftContext(
@@ -935,8 +937,8 @@ public class RaftContext implements AutoCloseable {
         }
       }
 
-      /*lastVotedFor = null;
-      meta.storeVote(null);*/
+      lastVotedFor = null;
+      meta.storeVote(null);
     }
   }
 
@@ -952,5 +954,14 @@ public class RaftContext implements AutoCloseable {
   public enum State {
     ACTIVE,
     READY,
+  }
+
+  // To be used for testing
+  public void setRandom(final Random random) {
+    this.random = random;
+  }
+
+  public Random getRandom() {
+    return random;
   }
 }

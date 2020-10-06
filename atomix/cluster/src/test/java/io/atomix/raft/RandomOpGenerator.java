@@ -36,8 +36,8 @@ public class RandomOpGenerator {
   }
 
   public static Collection<RaftOperation> getDefaultRaftOperations(
-      final Collection<MemberId> serverIds) {
-    final Collection<RaftOperation> defaultRaftOperation = new ArrayList<>();
+      final List<MemberId> serverIds) {
+    final List<RaftOperation> defaultRaftOperation = new ArrayList<>();
     defaultRaftOperation.add(
         RaftOperation.of("runNextTask", (raftRule, memberId) -> raftRule.runNextTask(memberId)));
     defaultRaftOperation.add(

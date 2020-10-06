@@ -466,9 +466,9 @@ public final class LeaderRole extends ActiveRole implements ZeebeLogAppender {
 
   @Override
   public CompletableFuture<ConfigureResponse> onConfigure(final ConfigureRequest request) {
-    if (updateTermAndLeader(request.term(), request.leader())) {
+    /*if (updateTermAndLeader(request.term(), request.leader())) {
       raft.transition(Role.FOLLOWER);
-    }
+    }*/
     return super.onConfigure(request);
   }
 
