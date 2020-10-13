@@ -5,7 +5,7 @@
  * Licensed under the Zeebe Community License 1.0. You may not use this file
  * except in compliance with the Zeebe Community License 1.0.
  */
-package io.zeebe.broker.system.partitions.impl.components;
+package io.zeebe.broker.system.partitions.impl.steps;
 
 import io.zeebe.broker.system.partitions.PartitionContext;
 import io.zeebe.broker.system.partitions.PartitionStep;
@@ -46,7 +46,6 @@ public class StreamProcessorPartitionStep implements PartitionStep {
 
   @Override
   public ActorFuture<Void> close(final PartitionContext context) {
-    context.getComponentHealthMonitor().removeComponent(context.getStreamProcessor().getName());
     final ActorFuture<Void> future = context.getStreamProcessor().closeAsync();
     context.setStreamProcessor(null);
     return future;

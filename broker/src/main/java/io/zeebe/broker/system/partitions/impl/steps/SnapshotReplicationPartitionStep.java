@@ -5,7 +5,7 @@
  * Licensed under the Zeebe Community License 1.0. You may not use this file
  * except in compliance with the Zeebe Community License 1.0.
  */
-package io.zeebe.broker.system.partitions.impl.components;
+package io.zeebe.broker.system.partitions.impl.steps;
 
 import io.zeebe.broker.Loggers;
 import io.zeebe.broker.system.partitions.PartitionContext;
