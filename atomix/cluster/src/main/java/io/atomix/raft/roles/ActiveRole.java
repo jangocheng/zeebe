@@ -195,7 +195,7 @@ public abstract class ActiveRole extends PassiveRole {
     // If no vote has been cast, check the log and cast a vote if necessary.
     else if (raft.getLastVotedFor() == null) {
       if (isLogUpToDate(request.lastLogIndex(), request.lastLogTerm(), request)) {
-        raft.setLastVotedFor(request.candidate());
+        // raft.setLastVotedFor(request.candidate());
         return VoteResponse.builder()
             .withStatus(RaftResponse.Status.OK)
             .withTerm(raft.getTerm())

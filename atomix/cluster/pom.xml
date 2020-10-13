@@ -152,6 +152,12 @@
       <artifactId>jqwik</artifactId>
       <scope>test</scope>
     </dependency>
+    <dependency>
+      <groupId>net.jqwik</groupId>
+      <artifactId>jqwik-api</artifactId>
+      <version>1.3.6</version>
+      <scope>test</scope>
+    </dependency>
   </dependencies>
 
   <modelVersion>4.0.0</modelVersion>

@@ -20,10 +20,8 @@ import io.atomix.cluster.MemberId;
 import io.zeebe.util.FileUtil;
 import java.io.File;
 import java.io.IOException;
-import java.util.Collection;
 import java.util.List;
 import java.util.Random;
-import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import net.jqwik.api.Arbitraries;
@@ -37,9 +35,9 @@ import net.jqwik.api.lifecycle.BeforeContainer;
 
 public class PropertyRaftTest {
 
-  static Collection<RaftOperation> operations;
-  static Collection<MemberId> raftMembers;
-  private static final int OPERATION_SIZE = 100000;
+  static List<RaftOperation> operations;
+  static List<MemberId> raftMembers;
+  private static final int OPERATION_SIZE = 10000;
   public RaftContextRule raftRule;
   File raftDataDirectory;
 
@@ -52,7 +50,7 @@ public class PropertyRaftTest {
             .map(MemberId::from)
             .collect(Collectors.toList());
     operations = RandomOpGenerator.getDefaultRaftOperations(servers);
-    raftMembers = Set.copyOf(servers);
+    raftMembers = List.copyOf(servers);
   }
 
   public void setUpRaftNodes(final Random random) throws Exception {
@@ -69,14 +67,14 @@ public class PropertyRaftTest {
     raftDataDirectory = null;
   }
 
-  @Property(tries = 100, shrinking = ShrinkingMode.OFF)
+  @Property(tries = 1, shrinking = ShrinkingMode.OFF, seed="-1824007742474785258")
   void raftProperty(
       @ForAll("raftOperations") final List<RaftOperation> raftOperations,
       @ForAll("raftMembers") final List<MemberId> raftMembers,
-      @ForAll("randoms") final Random random)
+      @ForAll("randoms") final long seed)
       throws Exception {
 
-    setUpRaftNodes(random);
+    setUpRaftNodes(new Random(seed));
 
     int step = 0;
     final var memberIter = raftMembers.iterator();
@@ -91,6 +89,7 @@ public class PropertyRaftTest {
         step = 0;
       }
     }
+
     raftRule.assertAllLogsEqual();
   }
 
@@ -107,7 +106,7 @@ public class PropertyRaftTest {
   }
 
   @Provide
-  Arbitrary<Random> randoms() {
-    return Arbitraries.randoms();
+  Arbitrary<Long> randoms() {
+    return Arbitraries.longs();
   }
 }
