@@ -7,7 +7,7 @@
  */
 package io.zeebe.broker.system.partitions;
 
-import io.zeebe.util.sched.future.CompletableActorFuture;
+import io.zeebe.util.sched.future.ActorFuture;
 
 public interface PartitionTransition {
 
@@ -15,22 +15,22 @@ public interface PartitionTransition {
    * Transitions to follower asynchronously by closing the current partition's components and
    * opening a follower partition.
    *
-   * @param future completed when the transition is complete
+   * @return an ActorFuture to be completed when the transition is complete
    */
-  void toFollower(CompletableActorFuture<Void> future);
+  ActorFuture<Void> toFollower();
 
   /**
    * Transitions to leader asynchronously by closing the current partition's components and opening
    * a leader partition.
    *
-   * @param future completed when the transition is complete
+   * @return an ActorFuture to be completed when the transition is complete
    */
-  void toLeader(CompletableActorFuture<Void> future);
+  ActorFuture<Void> toLeader();
 
   /**
    * Closes the current partition's components asynchronously.
    *
-   * @param future completed when the transition is complete
+   * @return an ActorFuture completed when the transition is complete
    */
-  void toInactive(CompletableActorFuture<Void> future);
+  ActorFuture<Void> toInactive();
 }

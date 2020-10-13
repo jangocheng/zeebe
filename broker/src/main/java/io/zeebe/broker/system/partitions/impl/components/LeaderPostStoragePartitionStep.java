@@ -7,12 +7,12 @@
  */
 package io.zeebe.broker.system.partitions.impl.components;
 
-import io.zeebe.broker.system.partitions.Component;
 import io.zeebe.broker.system.partitions.PartitionContext;
+import io.zeebe.broker.system.partitions.PartitionStep;
 import io.zeebe.util.sched.future.ActorFuture;
 import io.zeebe.util.sched.future.CompletableActorFuture;
 
-public class LeaderPostStorageComponent implements Component<Void> {
+public class LeaderPostStoragePartitionStep implements PartitionStep {
 
   @Override
   public ActorFuture<Void> open(final PartitionContext context) {
@@ -30,11 +30,6 @@ public class LeaderPostStorageComponent implements Component<Void> {
         .getSnapshotStoreSupplier()
         .getPersistedSnapshotStore(context.getRaftPartition().name())
         .removeSnapshotListener(context.getSnapshotController());
-    return CompletableActorFuture.completed(null);
-  }
-
-  @Override
-  public ActorFuture<Void> onOpen(final PartitionContext context, final Void aVoid) {
     return CompletableActorFuture.completed(null);
   }
 

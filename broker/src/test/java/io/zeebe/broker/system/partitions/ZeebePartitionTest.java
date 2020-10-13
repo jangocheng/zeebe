@@ -7,7 +7,6 @@
  */
 package io.zeebe.broker.system.partitions;
 
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
@@ -17,6 +16,7 @@ import io.atomix.primitive.partition.PartitionId;
 import io.atomix.raft.RaftServer.Role;
 import io.atomix.raft.partition.RaftPartition;
 import io.zeebe.util.health.CriticalComponentsHealthMonitor;
+import io.zeebe.util.sched.future.ActorFuture;
 import io.zeebe.util.sched.future.CompletableActorFuture;
 import io.zeebe.util.sched.testing.ControlledActorSchedulerRule;
 import org.junit.Before;
@@ -57,24 +57,24 @@ public class ZeebePartitionTest {
     schedulerRule.workUntilDone();
 
     // then
-    verify(transition).toLeader(any());
+    verify(transition).toLeader();
   }
 
   private static class NoopTransition implements PartitionTransition {
 
     @Override
-    public void toFollower(final CompletableActorFuture<Void> future) {
-      future.complete(null);
+    public ActorFuture<Void> toFollower() {
+      return CompletableActorFuture.completed(null);
     }
 
     @Override
-    public void toLeader(final CompletableActorFuture<Void> future) {
-      future.complete(null);
+    public ActorFuture<Void> toLeader() {
+      return CompletableActorFuture.completed(null);
     }
 
     @Override
-    public void toInactive(final CompletableActorFuture<Void> future) {
-      future.complete(null);
+    public ActorFuture<Void> toInactive() {
+      return CompletableActorFuture.completed(null);
     }
   }
 }

@@ -7,17 +7,16 @@
  */
 package io.zeebe.broker.system.partitions.impl.components;
 
-import io.zeebe.broker.system.partitions.Component;
 import io.zeebe.broker.system.partitions.PartitionContext;
+import io.zeebe.broker.system.partitions.PartitionStep;
 import io.zeebe.broker.system.partitions.impl.AsyncSnapshotDirector;
 import io.zeebe.util.sched.future.ActorFuture;
-import io.zeebe.util.sched.future.CompletableActorFuture;
 import java.time.Duration;
 
-public class SnapshotDirectorComponent implements Component<AsyncSnapshotDirector> {
+public class SnapshotDirectorPartitionStep implements PartitionStep {
 
   @Override
-  public ActorFuture<AsyncSnapshotDirector> open(final PartitionContext context) {
+  public ActorFuture<Void> open(final PartitionContext context) {
     final Duration snapshotPeriod = context.getBrokerCfg().getData().getSnapshotPeriod();
     final AsyncSnapshotDirector snapshotDirector =
         new AsyncSnapshotDirector(
@@ -27,7 +26,8 @@ public class SnapshotDirectorComponent implements Component<AsyncSnapshotDirecto
             context.getLogStream(),
             snapshotPeriod);
 
-    return CompletableActorFuture.completed(snapshotDirector);
+    context.setSnapshotDirector(snapshotDirector);
+    return context.getScheduler().submitActor(snapshotDirector);
   }
 
   @Override
@@ -35,13 +35,6 @@ public class SnapshotDirectorComponent implements Component<AsyncSnapshotDirecto
     final ActorFuture<Void> future = context.getSnapshotDirector().closeAsync();
     context.setSnapshotDirector(null);
     return future;
-  }
-
-  @Override
-  public ActorFuture<Void> onOpen(
-      final PartitionContext context, final AsyncSnapshotDirector asyncSnapshotDirector) {
-    context.setSnapshotDirector(asyncSnapshotDirector);
-    return context.getScheduler().submitActor(asyncSnapshotDirector);
   }
 
   @Override

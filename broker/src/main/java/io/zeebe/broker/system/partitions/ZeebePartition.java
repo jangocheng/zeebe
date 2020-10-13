@@ -25,7 +25,6 @@ import io.zeebe.util.sched.future.CompletableActorFuture;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 
@@ -34,7 +33,6 @@ public final class ZeebePartition extends Actor
 
   private static final Logger LOG = Loggers.SYSTEM_LOGGER;
 
-  private ActorFuture<Void> transitionFuture;
   private Role raftRole;
 
   private final String actorName;
@@ -82,7 +80,7 @@ public final class ZeebePartition extends Actor
         }
         break;
       case INACTIVE:
-        inactiveTransition();
+        transitionToInactive();
         break;
       case PASSIVE:
       case PROMOTABLE:
@@ -100,7 +98,8 @@ public final class ZeebePartition extends Actor
   }
 
   private void leaderTransition(final long newTerm) {
-    onTransitionTo(transition::toLeader)
+    transition
+        .toLeader()
         .onComplete(
             (success, error) -> {
               if (error == null) {
@@ -128,7 +127,8 @@ public final class ZeebePartition extends Actor
   }
 
   private void followerTransition(final long newTerm) {
-    onTransitionTo(transition::toFollower)
+    transition
+        .toFollower()
         .onComplete(
             (success, error) -> {
               if (error == null) {
@@ -153,20 +153,16 @@ public final class ZeebePartition extends Actor
             });
   }
 
-  private ActorFuture<Void> inactiveTransition() {
-    return onTransitionTo(this::transitionToInactive);
-  }
-
-  private void transitionToInactive(final CompletableActorFuture<Void> transitionComplete) {
+  private ActorFuture<Void> transitionToInactive() {
     zeebePartitionHealth.setHealthStatus(HealthStatus.UNHEALTHY);
-    transition.toInactive(transitionComplete);
+    return transition.toInactive();
   }
 
   private CompletableFuture<Void> onRaftFailed() {
     final CompletableFuture<Void> inactiveTransitionFuture = new CompletableFuture<>();
     actor.run(
         () -> {
-          final ActorFuture<Void> transitionComplete = inactiveTransition();
+          final ActorFuture<Void> transitionComplete = transitionToInactive();
           transitionComplete.onComplete(
               (v, t) -> {
                 if (t != null) {
@@ -177,19 +173,6 @@ public final class ZeebePartition extends Actor
               });
         });
     return inactiveTransitionFuture;
-  }
-
-  private ActorFuture<Void> onTransitionTo(
-      final Consumer<CompletableActorFuture<Void>> roleTransition) {
-    final CompletableActorFuture<Void> nextTransitionFuture = new CompletableActorFuture<>();
-    if (transitionFuture != null && !transitionFuture.isDone()) {
-      // wait until previous transition is complete
-      transitionFuture.onComplete((value, error) -> roleTransition.accept(nextTransitionFuture));
-    } else {
-      roleTransition.accept(nextTransitionFuture);
-    }
-    transitionFuture = nextTransitionFuture;
-    return transitionFuture;
   }
 
   @Override
@@ -222,15 +205,14 @@ public final class ZeebePartition extends Actor
 
   @Override
   protected void onActorClosing() {
-    final var future = new CompletableActorFuture<Void>();
-    transition.toInactive(future);
-    future.onComplete(
-        (nothing, err) -> {
-          context.getRaftPartition().removeRoleChangeListener(this);
+    transitionToInactive()
+        .onComplete(
+            (nothing, err) -> {
+              context.getRaftPartition().removeRoleChangeListener(this);
 
-          context.getComponentHealthMonitor().removeComponent(raftPartitionHealth.getName());
-          raftPartitionHealth.close();
-        });
+              context.getComponentHealthMonitor().removeComponent(raftPartitionHealth.getName());
+              raftPartitionHealth.close();
+            });
   }
 
   @Override

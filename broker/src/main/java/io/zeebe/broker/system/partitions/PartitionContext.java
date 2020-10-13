@@ -10,8 +10,6 @@ package io.zeebe.broker.system.partitions;
 import io.atomix.raft.partition.RaftPartition;
 import io.atomix.raft.storage.log.RaftLogReader;
 import io.zeebe.broker.PartitionListener;
-import io.zeebe.broker.exporter.jar.ExporterJarLoadException;
-import io.zeebe.broker.exporter.repo.ExporterLoadException;
 import io.zeebe.broker.exporter.repo.ExporterRepository;
 import io.zeebe.broker.exporter.stream.ExporterDirector;
 import io.zeebe.broker.logstreams.LogDeletionService;
@@ -47,7 +45,7 @@ public class PartitionContext {
   private final Integer partitionId;
   private final int maxFragmentSize;
   private final ZeebeIndexMapping zeebeIndexMapping;
-  private final ExporterRepository exporterRepository = new ExporterRepository();
+  private final ExporterRepository exporterRepository;
 
   private StreamProcessor streamProcessor;
   private LogStream logStream;
@@ -76,7 +74,8 @@ public class PartitionContext {
       final CommandApiService commandApiService,
       final ZeebeIndexMapping zeebeIndexMapping,
       final SnapshotStoreSupplier snapshotStoreSupplier,
-      final TypedRecordProcessorsFactory typedRecordProcessorsFactory) {
+      final TypedRecordProcessorsFactory typedRecordProcessorsFactory,
+      final ExporterRepository exporterRepository) {
     this.nodeId = nodeId;
     this.raftPartition = raftPartition;
     this.messagingService = messagingService;
@@ -89,19 +88,7 @@ public class PartitionContext {
     scheduler = actorScheduler;
     maxFragmentSize = (int) brokerCfg.getNetwork().getMaxMessageSizeInBytes();
     this.zeebeIndexMapping = zeebeIndexMapping;
-
-    final var exporterEntries = brokerCfg.getExporters().entrySet();
-    // load and validate exporters
-    for (final var exporterEntry : exporterEntries) {
-      final var id = exporterEntry.getKey();
-      final var exporterCfg = exporterEntry.getValue();
-      try {
-        exporterRepository.load(id, exporterCfg);
-      } catch (final ExporterLoadException | ExporterJarLoadException e) {
-        throw new IllegalStateException(
-            "Failed to load exporter with configuration: " + exporterCfg, e);
-      }
-    }
+    this.exporterRepository = exporterRepository;
   }
 
   public ExporterDirector getExporterDirector() {

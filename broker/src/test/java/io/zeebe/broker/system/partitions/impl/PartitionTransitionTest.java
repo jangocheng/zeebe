@@ -12,8 +12,8 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
-import io.zeebe.broker.system.partitions.Component;
 import io.zeebe.broker.system.partitions.PartitionContext;
+import io.zeebe.broker.system.partitions.PartitionStep;
 import io.zeebe.util.sched.Actor;
 import io.zeebe.util.sched.future.ActorFuture;
 import io.zeebe.util.sched.future.CompletableActorFuture;
@@ -42,28 +42,25 @@ public class PartitionTransitionTest {
   @Test
   public void shouldCloseInOppositeOrderOfOpen() {
     // given
-    final NoopComponent firstComponent = spy(new NoopComponent());
-    final NoopComponent secondComponent = spy(new NoopComponent());
+    final NoopPartitionStep firstComponent = spy(new NoopPartitionStep());
+    final NoopPartitionStep secondComponent = spy(new NoopPartitionStep());
     final PartitionTransitionImpl partitionTransition =
         new PartitionTransitionImpl(
             ctx, List.of(firstComponent, secondComponent), Collections.EMPTY_LIST);
 
     // when
-    final TestActor actor =
-        new TestActor(
-            () -> {
-              final CompletableActorFuture<Void> leaderFuture = new CompletableActorFuture<>();
-              partitionTransition.toLeader(leaderFuture);
-              leaderFuture.onComplete(
-                  (nothing, err) -> {
-                    Assertions.assertThat(err).isNull();
-
-                    final CompletableActorFuture<Void> closeFuture = new CompletableActorFuture<>();
-                    partitionTransition.toInactive(closeFuture);
-                    closeFuture.onComplete(
-                        (nothing1, err1) -> Assertions.assertThat(err1).isNull());
-                  });
-            });
+    final Actor actor =
+        Actor.wrap(
+            actorCtrl ->
+                partitionTransition
+                    .toLeader()
+                    .onComplete(
+                        (nothing, err) -> {
+                          Assertions.assertThat(err).isNull();
+                          partitionTransition
+                              .toInactive()
+                              .onComplete((nothing1, err1) -> Assertions.assertThat(err1).isNull());
+                        }));
 
     schedulerRule.submitActor(actor);
     schedulerRule.workUntilDone();
@@ -76,22 +73,7 @@ public class PartitionTransitionTest {
     order.verify(firstComponent).close(ctx);
   }
 
-  private static final class TestActor extends Actor {
-    private final Runnable runnable;
-
-    private TestActor(final Runnable runnable) {
-      super();
-      this.runnable = runnable;
-    }
-
-    @Override
-    protected void onActorStarted() {
-      super.onActorStarted();
-      runnable.run();
-    }
-  }
-
-  private static class NoopComponent implements Component<Void> {
+  private static class NoopPartitionStep implements PartitionStep {
 
     @Override
     public ActorFuture<Void> open(final PartitionContext context) {
@@ -100,11 +82,6 @@ public class PartitionTransitionTest {
 
     @Override
     public ActorFuture<Void> close(final PartitionContext context) {
-      return CompletableActorFuture.completed(null);
-    }
-
-    @Override
-    public ActorFuture<Void> onOpen(final PartitionContext context, final Void aVoid) {
       return CompletableActorFuture.completed(null);
     }
 

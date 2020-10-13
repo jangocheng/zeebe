@@ -8,16 +8,16 @@
 package io.zeebe.broker.system.partitions.impl.components;
 
 import io.zeebe.broker.Loggers;
-import io.zeebe.broker.system.partitions.Component;
 import io.zeebe.broker.system.partitions.PartitionContext;
+import io.zeebe.broker.system.partitions.PartitionStep;
 import io.zeebe.db.ZeebeDb;
 import io.zeebe.util.sched.future.ActorFuture;
 import io.zeebe.util.sched.future.CompletableActorFuture;
 
-public class ZeebeDbComponent implements Component<ZeebeDb> {
+public class ZeebeDbPartitionStep implements PartitionStep {
 
   @Override
-  public ActorFuture<ZeebeDb> open(final PartitionContext context) {
+  public ActorFuture<Void> open(final PartitionContext context) {
     context
         .getSnapshotStoreSupplier()
         .getPersistedSnapshotStore(context.getRaftPartition().name())
@@ -38,19 +38,14 @@ public class ZeebeDbComponent implements Component<ZeebeDb> {
               e));
     }
 
-    return CompletableActorFuture.completed(zeebeDb);
+    context.setZeebeDb(zeebeDb);
+    return CompletableActorFuture.completed(null);
   }
 
   @Override
   public ActorFuture<Void> close(final PartitionContext context) {
     // ZeebeDb is closed in the StateController's close()
     context.setZeebeDb(null);
-    return CompletableActorFuture.completed(null);
-  }
-
-  @Override
-  public ActorFuture<Void> onOpen(final PartitionContext context, final ZeebeDb zeebeDb) {
-    context.setZeebeDb(zeebeDb);
     return CompletableActorFuture.completed(null);
   }
 

@@ -7,31 +7,30 @@
  */
 package io.zeebe.broker.system.partitions.impl.components;
 
-import io.zeebe.broker.system.partitions.Component;
+import io.atomix.storage.journal.JournalReader.Mode;
 import io.zeebe.broker.system.partitions.PartitionContext;
+import io.zeebe.broker.system.partitions.PartitionStep;
 import io.zeebe.util.sched.future.ActorFuture;
 import io.zeebe.util.sched.future.CompletableActorFuture;
 
-public class FollowerPostStorageComponent implements Component<Void> {
+public class RaftLogReaderPartitionStep implements PartitionStep {
 
   @Override
   public ActorFuture<Void> open(final PartitionContext context) {
-    context.getSnapshotController().consumeReplicatedSnapshots();
+    final var reader = context.getRaftPartition().getServer().openReader(-1, Mode.COMMITS);
+    context.setRaftLogReader(reader);
     return CompletableActorFuture.completed(null);
   }
 
   @Override
   public ActorFuture<Void> close(final PartitionContext context) {
-    return CompletableActorFuture.completed(null);
-  }
-
-  @Override
-  public ActorFuture<Void> onOpen(final PartitionContext context, final Void aVoid) {
+    context.getRaftLogReader().close();
+    context.setRaftLogReader(null);
     return CompletableActorFuture.completed(null);
   }
 
   @Override
   public String getName() {
-    return "ConsumeReplicatedSnapshots";
+    return "RaftLogReader";
   }
 }

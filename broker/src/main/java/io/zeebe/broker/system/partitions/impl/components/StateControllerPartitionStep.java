@@ -9,18 +9,18 @@ package io.zeebe.broker.system.partitions.impl.components;
 
 import io.zeebe.broker.Loggers;
 import io.zeebe.broker.logstreams.state.StatePositionSupplier;
-import io.zeebe.broker.system.partitions.Component;
 import io.zeebe.broker.system.partitions.PartitionContext;
+import io.zeebe.broker.system.partitions.PartitionStep;
 import io.zeebe.broker.system.partitions.impl.AtomixRecordEntrySupplierImpl;
 import io.zeebe.broker.system.partitions.impl.StateControllerImpl;
 import io.zeebe.engine.state.DefaultZeebeDbFactory;
 import io.zeebe.util.sched.future.ActorFuture;
 import io.zeebe.util.sched.future.CompletableActorFuture;
 
-public class StateControllerComponent implements Component<StateControllerImpl> {
+public class StateControllerPartitionStep implements PartitionStep {
 
   @Override
-  public ActorFuture<StateControllerImpl> open(final PartitionContext context) {
+  public ActorFuture<Void> open(final PartitionContext context) {
     final var runtimeDirectory =
         context.getRaftPartition().dataDirectory().toPath().resolve("runtime");
     final var databaseCfg = context.getBrokerCfg().getData().getRocksdb();
@@ -41,7 +41,8 @@ public class StateControllerComponent implements Component<StateControllerImpl> 
                 context.getZeebeIndexMapping(), context.getRaftLogReader()),
             StatePositionSupplier::getHighestExportedPosition);
 
-    return CompletableActorFuture.completed(stateController);
+    context.setSnapshotController(stateController);
+    return CompletableActorFuture.completed(null);
   }
 
   @Override
@@ -57,13 +58,6 @@ public class StateControllerComponent implements Component<StateControllerImpl> 
       context.setSnapshotController(null);
     }
 
-    return CompletableActorFuture.completed(null);
-  }
-
-  @Override
-  public ActorFuture<Void> onOpen(
-      final PartitionContext context, final StateControllerImpl stateController) {
-    context.setSnapshotController(stateController);
     return CompletableActorFuture.completed(null);
   }
 

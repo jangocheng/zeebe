@@ -9,17 +9,16 @@ package io.zeebe.broker.system.partitions.impl.components;
 
 import static io.zeebe.engine.state.DefaultZeebeDbFactory.DEFAULT_DB_METRIC_EXPORTER_FACTORY;
 
-import io.zeebe.broker.system.partitions.Component;
 import io.zeebe.broker.system.partitions.PartitionContext;
-import io.zeebe.util.sched.ScheduledTimer;
+import io.zeebe.broker.system.partitions.PartitionStep;
 import io.zeebe.util.sched.future.ActorFuture;
 import io.zeebe.util.sched.future.CompletableActorFuture;
 import java.time.Duration;
 
-public class RocksDbMetricExporterComponent implements Component<ScheduledTimer> {
+public class RocksDbMetricExporterPartitionStep implements PartitionStep {
 
   @Override
-  public ActorFuture<ScheduledTimer> open(final PartitionContext context) {
+  public ActorFuture<Void> open(final PartitionContext context) {
     final var metricExporter =
         DEFAULT_DB_METRIC_EXPORTER_FACTORY.apply(
             Integer.toString(context.getPartitionId()), context.getZeebeDb());
@@ -34,20 +33,14 @@ public class RocksDbMetricExporterComponent implements Component<ScheduledTimer>
                   }
                 });
 
-    return CompletableActorFuture.completed(metricsTimer);
+    context.setMetricsTimer(metricsTimer);
+    return CompletableActorFuture.completed(null);
   }
 
   @Override
   public ActorFuture<Void> close(final PartitionContext context) {
     context.getMetricsTimer().cancel();
     context.setMetricsTimer(null);
-    return CompletableActorFuture.completed(null);
-  }
-
-  @Override
-  public ActorFuture<Void> onOpen(
-      final PartitionContext context, final ScheduledTimer scheduledTimer) {
-    context.setMetricsTimer(scheduledTimer);
     return CompletableActorFuture.completed(null);
   }
 

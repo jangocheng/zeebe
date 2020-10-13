@@ -7,29 +7,37 @@
  */
 package io.zeebe.broker.system.partitions.impl.components;
 
-import io.zeebe.broker.system.partitions.Component;
 import io.zeebe.broker.system.partitions.PartitionContext;
+import io.zeebe.broker.system.partitions.PartitionStep;
 import io.zeebe.engine.processing.streamprocessor.StreamProcessor;
 import io.zeebe.engine.state.ZeebeState;
 import io.zeebe.util.sched.ActorControl;
 import io.zeebe.util.sched.future.ActorFuture;
 import io.zeebe.util.sched.future.CompletableActorFuture;
 
-public class StreamProcessorComponent implements Component<StreamProcessor> {
+public class StreamProcessorPartitionStep implements PartitionStep {
 
   @Override
-  public ActorFuture<StreamProcessor> open(final PartitionContext context) {
+  public ActorFuture<Void> open(final PartitionContext context) {
     final StreamProcessor streamProcessor = createStreamProcessor(context);
+    final ActorFuture<Void> openFuture = streamProcessor.openAsync();
+    final CompletableActorFuture<Void> future = new CompletableActorFuture<>();
 
-    final ActorFuture<Void> streamProcFuture = streamProcessor.openAsync();
-    final CompletableActorFuture<StreamProcessor> future = new CompletableActorFuture<>();
-
-    streamProcFuture.onComplete(
+    openFuture.onComplete(
         (nothing, err) -> {
-          if (err != null) {
-            future.completeExceptionally(err);
+          if (err == null) {
+            context.setStreamProcessor(streamProcessor);
+
+            if (!context.shouldProcess()) {
+              streamProcessor.pauseProcessing();
+            }
+
+            context
+                .getComponentHealthMonitor()
+                .registerComponent(streamProcessor.getName(), streamProcessor);
+            future.complete(null);
           } else {
-            future.complete(streamProcessor);
+            future.completeExceptionally(err);
           }
         });
 
@@ -42,22 +50,6 @@ public class StreamProcessorComponent implements Component<StreamProcessor> {
     final ActorFuture<Void> future = context.getStreamProcessor().closeAsync();
     context.setStreamProcessor(null);
     return future;
-  }
-
-  @Override
-  public ActorFuture<Void> onOpen(
-      final PartitionContext context, final StreamProcessor streamProcessor) {
-    context.setStreamProcessor(streamProcessor);
-
-    if (!context.shouldProcess()) {
-      streamProcessor.pauseProcessing();
-    }
-
-    context
-        .getComponentHealthMonitor()
-        .registerComponent(streamProcessor.getName(), streamProcessor);
-
-    return CompletableActorFuture.completed(null);
   }
 
   @Override
